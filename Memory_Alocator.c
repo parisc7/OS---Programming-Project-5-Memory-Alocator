@@ -12,8 +12,8 @@ typedef struct MemmoryBlock {
     struct MemmoryBlock *prev, *next;
 } MemmoryBlock;
 
-size_t mem_size = 0;
-MemmoryBlock *mem;
+size_t MainMemorySize = 0;
+MemmoryBlock *MainMemory;
 
 
 MemmoryBlock *make_block(size_t currentlow, size_t currentHigh, const char *name, MemmoryBlock *prev, MemmoryBlock *next) {
@@ -46,7 +46,7 @@ int request_memory(const char *name, size_t size, char strategy) {
     // select the hole
     switch(strategy) {
         case 'F': {
-            hole = mem;
+            hole = MainMemory;
             while(hole) {
                 if(hole->name == NULL && (hole->high - hole->low + 1) >= size) {
                     break;
@@ -56,7 +56,7 @@ int request_memory(const char *name, size_t size, char strategy) {
             break;
         }
         case 'B': {
-            MemmoryBlock *cursor = mem;
+            MemmoryBlock *cursor = MainMemory;
             size_t min_size = -1;   // get the max number in size_t
             while(cursor) {
                 size_t hole_size = (cursor-> high - cursor->low + 1);
@@ -69,7 +69,7 @@ int request_memory(const char *name, size_t size, char strategy) {
             break;
         }
         case 'W': {
-            MemmoryBlock *cursor = mem;
+            MemmoryBlock *cursor = MainMemory;
             size_t max_size = size - 1;
             while(cursor) {
                 size_t hole_size = (cursor-> high - cursor->low + 1);
@@ -102,7 +102,7 @@ int request_memory(const char *name, size_t size, char strategy) {
 
 // release all blocks with the given name, and do the merges if possible
 int release_memory(const char *name) {
-    MemmoryBlock *cursor = mem;
+    MemmoryBlock *cursor = MainMemory;
     int flag = 1;
     while(cursor) {
         if(cursor->name && strcmp(cursor->name, name) == 0) {
@@ -122,7 +122,7 @@ int release_memory(const char *name) {
         }
         // update the first block in memory if necessary
         if(cursor->prev == NULL) {
-            mem = cursor;
+            MainMemory = cursor;
         }
         cursor = cursor->next;
     }
@@ -133,7 +133,7 @@ int release_memory(const char *name) {
 }
 
 void compact_memory() {
-    MemmoryBlock *cursor = mem;
+    MemmoryBlock *cursor = MainMemory;
     while(cursor) {
         // unused --> used, swap these two blocks
         if(cursor->name && cursor->prev && !cursor->prev->name) {
@@ -189,7 +189,7 @@ void display_usage() {
 
 void display_memory() {
    printf("--------------------------------------------------------------\n");
-   MemmoryBlock *cursor = mem;
+   MemmoryBlock *cursor = MainMemory;
     while(cursor) {
         printf("[%06zu - %06zu] ", cursor->low, cursor->high);
         if(cursor->name) {
@@ -207,19 +207,19 @@ int init(int argc, char **argv) {
         printf("Incorrect number of arguments.\n");
         return -1;
     }
-    sscanf(argv[1], "%zu", &mem_size);
-    mem = make_block(0, mem_size - 1, "", NULL, NULL);
-    printf("The size of memory is initialized to %zu bytes\n", mem_size);
+    sscanf(argv[1], "%zu", &MainMemorySize);
+    MainMemory = make_block(0, MainMemorySize - 1, "", NULL, NULL);
+    printf("The size of memory is initialized to %zu bytes\n", MainMemorySize);
     display_usage
     return 0;
 }
 
 void clean_up() {
-    MemmoryBlock *temp = mem;
-    while(mem) {
-        free(mem -> name);
-        temp = mem;
-        mem = mem -> next;
+    MemmoryBlock *temp = MainMemory;
+    while(MainMemory) {
+        free(MainMemory -> name);
+        temp = MainMemory;
+        MainMemory = MainMemory -> next;
         free(temp);
     }
 }
