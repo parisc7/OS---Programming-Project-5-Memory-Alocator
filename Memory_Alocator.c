@@ -5,23 +5,24 @@
 #define NAME_LENGTH_LIMIT 128
 #define OPERATOR_LENGTH_LIMIT 8
 
-typedef struct MemBlock {
-    size_t lo, hi;
+
+typedef struct MemmoryBlock {
+    size_t low, high;
     char *name;
-    struct MemBlock *prev, *next;
-} MemBlock;
+    struct MemmoryBlock *prev, *next;
+} MemmoryBlock;
 
 size_t mem_size = 0;
-MemBlock *mem;
+MemmoryBlock *mem;
 
 
-MemBlock *make_block(size_t lo, size_t hi, const char *name, MemBlock *prev, MemBlock *next) {
-    MemBlock *ret = malloc(sizeof(MemBlock));
+MemmoryBlock *make_block(size_t currentlow, size_t currentHigh, const char *name, MemmoryBlock *prev, MemmoryBlock *next) {
+    MemmoryBlock *ret = malloc(sizeof(MemmoryBlock));
     if(ret == NULL) {
         printf("Failed to allocate physical memory.\n");
         exit(-1);
     }
-    ret->lo = lo, ret->hi = hi;
+    ret->low = currentlow, ret->high = currentHigh;
     // allocate memory and copy the string
     if(strlen(name) != 0) {
         ret->name = malloc(sizeof(char) * (strlen(name) + 1));
@@ -41,13 +42,13 @@ MemBlock *make_block(size_t lo, size_t hi, const char *name, MemBlock *prev, Mem
 }
 
 int request_memory(const char *name, size_t size, char strategy) {
-    MemBlock *hole = NULL;
+    MemmoryBlock *hole = NULL;
     // select the hole
     switch(strategy) {
         case 'F': {
             hole = mem;
             while(hole) {
-                if(hole->name == NULL && (hole->hi - hole->lo + 1) >= size) {
+                if(hole->name == NULL && (hole->high - hole->low + 1) >= size) {
                     break;
                 }
                 hole = hole->next;
@@ -55,10 +56,10 @@ int request_memory(const char *name, size_t size, char strategy) {
             break;
         }
         case 'B': {
-            MemBlock *cursor = mem;
+            MemmoryBlock *cursor = mem;
             size_t min_size = -1;   // get the max number in size_t
             while(cursor) {
-                size_t hole_size = (cursor-> hi - cursor->lo + 1);
+                size_t hole_size = (cursor-> high - cursor->low + 1);
                 if(cursor->name == NULL && size <= hole_size && hole_size < min_size) {
                     min_size = hole_size;
                     hole = cursor;
@@ -68,10 +69,10 @@ int request_memory(const char *name, size_t size, char strategy) {
             break;
         }
         case 'W': {
-            MemBlock *cursor = mem;
+            MemmoryBlock *cursor = mem;
             size_t max_size = size - 1;
             while(cursor) {
-                size_t hole_size = (cursor-> hi - cursor->lo + 1);
+                size_t hole_size = (cursor-> high - cursor->low + 1);
                 if(cursor->name == NULL && hole_size > max_size) {
                     max_size = hole_size;
                     hole = cursor;
@@ -91,17 +92,17 @@ int request_memory(const char *name, size_t size, char strategy) {
     }
     hole->name = malloc(sizeof(char) * (strlen(name) + 1));
     strcpy(hole->name, name);
-    if(hole->hi - hole->lo + 1 == size) {   // the hole size is exactly equal to the requested size
+    if(hole->high - hole->low + 1 == size) {   // the hole size is exactly equal to the requested size
         return 0;
     }
-    hole->next = make_block(hole->lo + size, hole->hi, "", hole, hole->next);
-    hole->hi = hole->lo + size - 1;
+    hole->next = make_block(hole->low + size, hole->high, "", hole, hole->next);
+    hole->high = hole->low + size - 1;
     return 0;
 }
 
 // release all blocks with the given name, and do the merges if possible
 int release_memory(const char *name) {
-    MemBlock *cursor = mem;
+    MemmoryBlock *cursor = mem;
     int flag = 1;
     while(cursor) {
         if(cursor->name && strcmp(cursor->name, name) == 0) {
@@ -111,12 +112,12 @@ int release_memory(const char *name) {
         }
         // merge with the prev block if possible
         if(cursor->name == NULL && cursor->prev && cursor->prev->name == NULL) {
-            MemBlock *temp = cursor->prev;
+            MemmoryBlock *temp = cursor->prev;
             cursor->prev = temp->prev;
             if(temp->prev) {
                 temp->prev->next = cursor;
             }
-            cursor->lo = temp->lo;
+            cursor->low = temp->low;
             free(temp);
         }
         // update the first block in memory if necessary
@@ -132,20 +133,20 @@ int release_memory(const char *name) {
 }
 
 void compact_memory() {
-    MemBlock *cursor = mem;
+    MemmoryBlock *cursor = mem;
     while(cursor) {
         // unused --> used, swap these two blocks
         if(cursor->name && cursor->prev && !cursor->prev->name) {
-            MemBlock *prev = cursor->prev;
-            prev->hi = prev->lo + (cursor->hi - cursor->lo);
-            cursor->lo = prev->hi + 1;
+            MemmoryBlock *prev = cursor->prev;
+            prev->high = prev->low + (cursor->high - cursor->low);
+            cursor->low = prev->high + 1;
             prev->name = cursor->name;
             cursor->name = NULL;
         }
         // unused --> unused, merge thees two blocks
         if(!cursor->name && cursor->prev && !cursor->prev->name) {
-            MemBlock *prev = cursor->prev;
-            cursor->lo = prev->lo;
+            MemmoryBlock *prev = cursor->prev;
+            cursor->low = prev->low;
             cursor->prev = prev->prev;
             if(cursor->prev) {
                 cursor->prev->next = cursor;
@@ -170,28 +171,27 @@ void release_wrapper() {
 }
 
 void display_usage() {
-    printf("=============================================================\n");
-    printf("<this program> <memory size (in bytes)>\n");
+    printf("--------------------------------------------------------------\n");
     printf("Operations:\n");
-    printf("    RQ <process name> <memory size (in bytes)> <strategy>\n"
-           "        Request for a contagious block of memory (available strategies are F, W and B)\n"
-           "    RL <process name>\n"
+    printf("    RQ <process name> <memory size (in bytes)> <strategy> : \n"
+           "        Request for a contagious block of memory (available strategies are F (First-fit), W (Worst-Fit) and B (Best-Fit))\n"
+           "    RL <process name> :\n"
            "        Release the process's contagious block of memory\n"
-           "    C\n"
+           "    C :\n"
            "        Compact unused holes of memory into one single block\n"
-           "    STAT\n"
+           "    STAT :\n"
            "        Report the regions of free and allocated memory\n"
-           "    X\n"
+           "    X :\n"
            "        Exit\n"
           );
-    printf("=============================================================\n");
+    printf("--------------------------------------------------------------\n");
 }
 
 void display_memory() {
-    printf("=============================================================\n");
-    MemBlock *cursor = mem;
+   printf("--------------------------------------------------------------\n");
+   MemmoryBlock *cursor = mem;
     while(cursor) {
-        printf("[%06zu - %06zu] ", cursor->lo, cursor->hi);
+        printf("[%06zu - %06zu] ", cursor->low, cursor->high);
         if(cursor->name) {
             printf("Process %s\n", cursor->name);
         } else {
@@ -199,7 +199,7 @@ void display_memory() {
         }
         cursor = cursor->next;
     }
-    printf("=============================================================\n");
+   printf("--------------------------------------------------------------\n");
 }
 
 int init(int argc, char **argv) {
@@ -210,11 +210,12 @@ int init(int argc, char **argv) {
     sscanf(argv[1], "%zu", &mem_size);
     mem = make_block(0, mem_size - 1, "", NULL, NULL);
     printf("The size of memory is initialized to %zu bytes\n", mem_size);
+    display_usage
     return 0;
 }
 
 void clean_up() {
-    MemBlock *temp = mem;
+    MemmoryBlock *temp = mem;
     while(mem) {
         free(mem -> name);
         temp = mem;
