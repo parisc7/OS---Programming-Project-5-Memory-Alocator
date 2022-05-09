@@ -18,7 +18,7 @@ MemBlock *mem;
 MemBlock *make_block(size_t lo, size_t hi, const char *name, MemBlock *prev, MemBlock *next) {
     MemBlock *ret = malloc(sizeof(MemBlock));
     if(ret == NULL) {
-        printf("Failed to allocate phisical memory.\n");
+        printf("Failed to allocate physical memory.\n");
         exit(-1);
     }
     ret->lo = lo, ret->hi = hi;
@@ -174,9 +174,9 @@ void display_usage() {
     printf("<this program> <memory size (in bytes)>\n");
     printf("Operations:\n");
     printf("    RQ <process name> <memory size (in bytes)> <strategy>\n"
-           "        Request for a contigous block of memory (available strategies are F, W and B)\n"
+           "        Request for a contagious block of memory (available strategies are F, W and B)\n"
            "    RL <process name>\n"
-           "        Release the process's contigous block of memory\n"
+           "        Release the process's contagious block of memory\n"
            "    C\n"
            "        Compact unused holes of memory into one single block\n"
            "    STAT\n"
