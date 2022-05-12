@@ -17,34 +17,34 @@ MemmoryBlock *MainMemory;
 
 
 MemmoryBlock *make_block(size_t currentlow, size_t currentHigh, const char *name, MemmoryBlock *prev, MemmoryBlock *next) {
-    MemmoryBlock *ret = malloc(sizeof(MemmoryBlock));
-    if(ret == NULL) {
+    MemmoryBlock *temp = malloc(sizeof(MemmoryBlock));
+    if(temp == NULL) {
         printf("Failed to allocate physical memory.\n");
         exit(-1);
     }
-    ret->low = currentlow, ret->high = currentHigh;
+    temp->low = currentlow, temp->high = currentHigh;
     // allocate memory and copy the string
     if(strlen(name) != 0) {
-        ret->name = malloc(sizeof(char) * (strlen(name) + 1));
-        strcpy(ret->name, name);
+        temp->name = malloc(sizeof(char) * (strlen(name) + 1));
+        strcpy(temp->name, name);
     } else { // unused block
-        ret->name = NULL;
+        temp->name = NULL;
     }
     // handle the prev and next to preserve a doubly-linked list
-    ret->prev = prev, ret->next = next;
+    temp->prev = prev, temp->next = next;
     if(prev) {
-        prev->next = ret;
+        prev->next = temp;
     }
     if(next) {
-        next->prev = ret;
+        next->prev = temp;
     }
-    return ret;
+    return temp;
 }
 
-int request_memory(const char *name, size_t size, char strategy) {
+int request_memory(const char *name, size_t size, char Type) {
     MemmoryBlock *hole = NULL;
     // select the hole
-    switch(strategy) {
+    switch(Type) {
         case 'F': {
             hole = MainMemory;
             while(hole) {
@@ -82,7 +82,7 @@ int request_memory(const char *name, size_t size, char strategy) {
             break;
         }
         default: {
-            printf("Unknown strategy: %c\n", strategy);
+            printf("Unknown Type: %c\n", Type);
             return -1;
         }
     }
@@ -132,6 +132,45 @@ int release_memory(const char *name) {
     return flag;
 }
 
+//RQ
+void request_wrapper() {
+    char name[NAME_LENGTH_LIMIT], type;
+    size_t size;
+    scanf("%s %zu %c", name, &size, &type); // unsafe but convenient
+    printf(request_memory(name, size, type) ? "FAILURE\n" : "SUCCESS\n");
+}
+//RL
+void release_wrapper() {
+    char name[NAME_LENGTH_LIMIT];
+    scanf("%s", name); // unsafe but convenient
+    printf(release_memory(name) ? "FAILURE\n" : "SUCCESS\n");
+}
+//X
+void clean_up() {
+    MemmoryBlock *temp = MainMemory;
+    while(MainMemory) {
+        free(MainMemory -> name);
+        temp = MainMemory;
+        MainMemory = MainMemory -> next;
+        free(temp);
+    }
+}
+//STAT
+void display_memory() {
+   printf("--------------------------------------------------------------\n");
+   MemmoryBlock *cursor = MainMemory;
+    while(cursor) {
+        printf("[%06zu - %06zu] ", cursor->low, cursor->high);
+        if(cursor->name) {
+            printf("Process %s\n", cursor->name);
+        } else {
+            printf("Unused\n");
+        }
+        cursor = cursor->next;
+    }
+   printf("--------------------------------------------------------------\n");
+}
+//C
 void compact_memory() {
     MemmoryBlock *cursor = MainMemory;
     while(cursor) {
@@ -157,24 +196,12 @@ void compact_memory() {
     }
 }
 
-void request_wrapper() {
-    char name[NAME_LENGTH_LIMIT], strategy;
-    size_t size;
-    scanf("%s %zu %c", name, &size, &strategy); // unsafe but convenient
-    printf(request_memory(name, size, strategy) ? "FAILURE\n" : "SUCCESS\n");
-}
-
-void release_wrapper() {
-    char name[NAME_LENGTH_LIMIT];
-    scanf("%s", name); // unsafe but convenient
-    printf(release_memory(name) ? "FAILURE\n" : "SUCCESS\n");
-}
-
 void display_usage() {
+
     printf("--------------------------------------------------------------\n");
     printf("Operations:\n");
-    printf("    RQ <process name> <memory size (in bytes)> <strategy> : \n"
-           "        Request for a contagious block of memory (available strategies are F (First-fit), W (Worst-Fit) and B (Best-Fit))\n"
+    printf("    RQ <process name> <memory size (in bytes)> <Type> : \n"
+           "        Request for a contagious block of memory (available types of alocation are F (First-fit), W (Worst-Fit) and B (Best-Fit))\n"
            "    RL <process name> :\n"
            "        Release the process's contagious block of memory\n"
            "    C :\n"
@@ -187,22 +214,8 @@ void display_usage() {
     printf("--------------------------------------------------------------\n");
 }
 
-void display_memory() {
-   printf("--------------------------------------------------------------\n");
-   MemmoryBlock *cursor = MainMemory;
-    while(cursor) {
-        printf("[%06zu - %06zu] ", cursor->low, cursor->high);
-        if(cursor->name) {
-            printf("Process %s\n", cursor->name);
-        } else {
-            printf("Unused\n");
-        }
-        cursor = cursor->next;
-    }
-   printf("--------------------------------------------------------------\n");
-}
 
-int init(int argc, char **argv) {
+int initialize(int argc, char **argv) {
     if(argc != 2) {
         printf("Incorrect number of arguments.\n");
         return -1;
@@ -210,38 +223,28 @@ int init(int argc, char **argv) {
     sscanf(argv[1], "%zu", &MainMemorySize);
     MainMemory = make_block(0, MainMemorySize - 1, "", NULL, NULL);
     printf("The size of memory is initialized to %zu bytes\n", MainMemorySize);
-    display_usage
+    display_usage();
     return 0;
 }
 
-void clean_up() {
-    MemmoryBlock *temp = MainMemory;
-    while(MainMemory) {
-        free(MainMemory -> name);
-        temp = MainMemory;
-        MainMemory = MainMemory -> next;
-        free(temp);
-    }
-}
-
 int main(int argc, char **argv) {
-    if(init(argc, argv) != 0) {
+    if(initialize(argc, argv) != 0) {
         display_usage();
         return 0;
     }
-    char op[OPERATOR_LENGTH_LIMIT];
+    char operation[OPERATOR_LENGTH_LIMIT];
     while(1) {
         printf("allocator> ");
-        scanf("%s", op);    // unsafe but convenient
-        if(strcmp(op, "RQ") == 0) {
+        scanf("%s", operation);    // unsafe but convenient
+        if(strcmp(operation, "RQ") == 0) {
             request_wrapper();
-        } else if(strcmp(op, "RL") == 0) {
+        } else if(strcmp(operation, "RL") == 0) {
             release_wrapper();
-        } else if(strcmp(op, "C") == 0) {
+        } else if(strcmp(operation, "C") == 0) {
             compact_memory();
-        } else if(strcmp(op, "STAT") == 0) {
+        } else if(strcmp(operation, "STAT") == 0) {
             display_memory();
-        } else if(strcmp(op, "X") == 0) {
+        } else if(strcmp(operation, "X") == 0) {
             clean_up();
             break;
         } else {
